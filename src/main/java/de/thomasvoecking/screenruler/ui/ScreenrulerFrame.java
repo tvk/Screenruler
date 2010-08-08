@@ -3,8 +3,10 @@ package de.thomasvoecking.screenruler.ui;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -63,9 +65,24 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	private static final Dimension size = new Dimension(600, 60); 
 	
 	/**
+	 * The minimum width of this frame
+	 */
+	private static final int minWidth = 200;
+	
+	/**
 	 * Width of the resize controls
 	 */
 	private static final int resizeControlWidth = 10;
+	
+	/**
+	 * Height of the resize controls
+	 */
+	private static final int resizeControlHeight = 30;
+	
+	/**
+	 * The padding between the ruler and the resize controls.
+	 */
+	private static final int rulerPadding = 10;
 	
 	/**
 	 * The overlay color
@@ -81,6 +98,11 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	 * The right resize control
 	 */
 	private final ScreenrulerResizeControl rightResizeControl = ScreenrulerResizeControl.RIGHT;
+	
+	/** 
+	 * The ruler
+	 */
+	private final Ruler ruler = new Ruler("cm", 48, 129);
 	
 	/**
 	 * The current {@link DraggingMode}
@@ -115,6 +137,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 		
 		log.debug("Setting size: " + size);
 		this.setSize(size);
+		this.setResizable(false);
 
 		log.debug("Setting opacity: " + opacity);
 		AWTUtilities.setWindowOpacity(this, opacity);
@@ -129,6 +152,10 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	@Override
 	public void paint(final Graphics g) 
 	{
+		
+		final Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);		
 		g.clearRect(0, 0, this.getWidth(), this.getHeight());
 		
 		// When the ruler is currently in resizing state, draw no ruler and no resize controls.
@@ -143,6 +170,11 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 		else
 		{
 			this.paintArrows(g);
+			this.ruler.paint(g, new Rectangle(
+					resizeControlWidth + rulerPadding, 
+					0, 
+					this.getWidth() - 2 * resizeControlWidth - 2 * rulerPadding, 
+					this.getHeight()));
 		}
 	}
 	
@@ -157,6 +189,12 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 		g.setColor(overlayColor);
 		g.fillRect(0, 0, this.getWidth() + 100, this.getHeight());
 		g.setColor(color);
+		g.drawLine(
+				resizeControlWidth + rulerPadding, 0, 
+				resizeControlWidth + rulerPadding, (int) (this.getHeight() / 2.0));
+		g.drawLine(
+				this.getWidth() - resizeControlWidth - rulerPadding, 0, 
+				this.getWidth() - resizeControlWidth - rulerPadding, (int) (this.getHeight() / 2.0));
 	}
 	
 	/**
@@ -206,17 +244,19 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	{
 		if (this.draggingMode == DraggingMode.RESIZE_LEFT)
 		{
-			this.setBounds(
+			final Rectangle newBounds = new Rectangle(
 					(int) (e.getLocationOnScreen().getX() - this.componentRelativeMouseLocationFromLeft.getX()), 
 					(int) (this.getLocationOnScreen().getY()), 
 					(int) (this.bottomRight.getX() - e.getLocationOnScreen().getX() - this.componentRelativeMouseLocationFromLeft.getX()), 
 					this.getHeight());
+			if (newBounds.getWidth() >= minWidth) this.setBounds(newBounds);
 		}
 		else if (this.draggingMode == DraggingMode.RESIZE_RIGHT)
 		{
-			this.setSize(
+			final Dimension newSize = new Dimension(
 					(int) (e.getLocationOnScreen().getX() - this.getLocationOnScreen().getX() + this.componentRelativeMouseLocationFromRight.getX()), 
 					this.getHeight());
+			if (newSize.getWidth() >= minWidth) this.setSize(newSize);
 		}
 		else if (this.draggingMode == DraggingMode.MOVE)
 		{
@@ -232,10 +272,12 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	@Override
 	public void mouseReleased(final MouseEvent e) 
 	{
-		log.debug("Releasing dragging mode: " + this.draggingMode);
-		
-		this.draggingMode = null;
-		this.repaint();
+		if (this.draggingMode != null)
+		{
+			log.debug("Releasing dragging mode: " + this.draggingMode);
+			this.draggingMode = null;
+			this.repaint();
+		}
 	}
 
 	/**
@@ -243,7 +285,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	 */
 	private Rectangle getLeftResizeControlBoundingBox()
 	{
-		return new Rectangle(0, 0, resizeControlWidth, this.getHeight());
+		return new Rectangle(0, 0, resizeControlWidth, resizeControlHeight);
 	}
 
 	/**
@@ -251,7 +293,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	 */
 	private Rectangle getRightResizeControlBoundingBox()
 	{
-		return new Rectangle(this.getWidth() - resizeControlWidth, 0, resizeControlWidth, this.getHeight());
+		return new Rectangle(this.getWidth() - resizeControlWidth, 0, resizeControlWidth, resizeControlHeight);
 	}
 
 
