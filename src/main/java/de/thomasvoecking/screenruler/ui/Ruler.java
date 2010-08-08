@@ -1,6 +1,5 @@
 package de.thomasvoecking.screenruler.ui;
 
-import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Rectangle;
@@ -25,14 +24,19 @@ public class Ruler
 	private static final Log log = LogFactory.getLog(Ruler.class);
 
 	/**
+	 * Logging prepend
+	 */
+	private static final int logPrependPadding = 21;
+
+	/**
 	 * The length of the (main) stroke in px 
 	 */
 	private static final int strokeLength = 30;
 	
 	/**
-	 * The minimum width of an inner field before a scale is drawn inside.
+	 * The minimum distance between two strokes for inner fields in px
 	 */
-	private static int minimumFieldWidthToDrawInnerScale = 60;
+	private static int minimumInnerFieldStrokeWidth = 7;
 	
 	/**
 	 * Start value of the ruler
@@ -50,11 +54,17 @@ public class Ruler
 	private String unitName;
 	
 	
+	/**
+	 * Constructor
+	 * 
+	 * @param unitName The name of this unit (like "cm"). Only used for displaying.
+	 * @param rulerStartValue The start value in the given unit (like "5 cm")
+	 * @param rulerEndValue The end value in the given unit (like "25 cm")
+	 */
 	public Ruler(final String unitName, final double rulerStartValue, final double rulerEndValue) 
 	{
-		this.rulerStartValue = rulerStartValue;
-		this.rulerEndValue = rulerEndValue;
 		this.unitName = unitName;
+		this.setRulerBounds(rulerStartValue, rulerEndValue);
 	}
 
 	/**
@@ -66,7 +76,6 @@ public class Ruler
 	public void paint(final Graphics graphics, final Rectangle bounds)
 	{
 
-		final int logPrependPadding = 21;
 		log.debug("Painting ruler");
 		log.debug(StringUtils.rightPad("rulerStartValue", logPrependPadding) + ": " + this.rulerStartValue);
 		log.debug(StringUtils.rightPad("rulerEndValue", logPrependPadding) + ": " + this.rulerEndValue);
@@ -109,11 +118,28 @@ public class Ruler
 			
 			log.debug(StringUtils.rightPad("x (" + value + " " + this.unitName + ")", logPrependPadding) + ": " + x + " px" + (i > 0 ? ", Distance to last x : " + (x - lastX) + " px" : ""));
 			
-			// Draw this step only if it is inside the range of this ruler.
-			if (value >= this.rulerStartValue && value <= this.rulerEndValue)
+			// Draw the inner strokes if possible
+			if (i > 0)
 			{
-				graphics.drawLine(x, 0, x, strokeLength);			
-				textUntil = this.drawUnitString(graphics, value, x, textUntil);
+				final double fieldWidth = resolution * rulerBaseValue;
+				
+				// Check if we have enough space to draw 10 strokes
+				if (fieldWidth / 10.0 >= minimumInnerFieldStrokeWidth) 
+				{
+					this.drawInnerUnit(graphics, bounds, lastX, x, 9, (int) (strokeLength / 2.0));
+				}
+				// else check if we have enough space to draw 5 strokes
+				else if (fieldWidth / 5.0 >= minimumInnerFieldStrokeWidth) 
+				{
+					this.drawInnerUnit(graphics, bounds, lastX, x, 4, (int) (strokeLength / 2.0));
+				}
+				
+				// Draw this step only if it is inside the range of this ruler.
+				if (value >= this.rulerStartValue && value <= this.rulerEndValue)
+				{
+					graphics.drawLine(x, 0, x, strokeLength);			
+					textUntil = this.drawUnitString(graphics, value, x, textUntil);
+				}
 			}
 
 			lastX = x;
@@ -129,6 +155,32 @@ public class Ruler
 	}
 
 	/**
+	 * Tries to draw the strokes of an inner field. Returns if it is not possible.
+	 * 
+	 * @param graphics The graphics object
+	 * @param bounds The bounds 
+	 * @param x1 Left bound of the current field
+	 * @param x2 Right bound of the current field
+	 * @param numberOfStrokes The number of strokes to draw
+	 * @param innerStrokeLength The length of the stroke to draw
+	 */
+	private void drawInnerUnit(final Graphics graphics, final Rectangle bounds, final int x1, final int x2, 
+			final int numberOfStrokes, final int innerStrokeLength)
+	{
+		
+		// Draw the strokes
+		for (int i = 0; i < numberOfStrokes; i++)
+		{
+			final int x = (int) (x1 + ((double) (i + 1) / (numberOfStrokes + 1)) * (x2 - x1));
+			log.debug(StringUtils.rightPad("inner stroke x:", logPrependPadding) + ": " + x + " px");
+
+			if (x > bounds.getX() + 1 && x < bounds.getMaxX() - 1) graphics.drawLine(x, 0, x, innerStrokeLength);
+			
+			// TODO second scale
+		}
+	}
+	
+	/**
 	 * Draws a unit string ("13.0 cm")
 	 *  
 	 * @param graphics
@@ -143,7 +195,7 @@ public class Ruler
 	{
 		final String text = value + " " + this.unitName;
 		final Font currentFont = graphics.getFont();
-		final Font font = new Font(currentFont.getName(), Font.PLAIN, 8);
+		final Font font = new Font(currentFont.getName(), Font.PLAIN, 9);
 		graphics.setFont(font);
 		final Rectangle2D textBounds = graphics.getFontMetrics().getStringBounds(text, graphics);
 		
@@ -173,12 +225,45 @@ public class Ruler
 		return Math.pow(10.0, Math.ceil(Math.log10(this.rulerEndValue - this.rulerStartValue)) - 1.0);
 	}
 	
-	public void setRulerStartValue(double rulerStartValue) {
+	/**
+	 * Set's the bounds of this ruler.
+	 * 
+	 * @param rulerStartValue The start value. Must be greater than 0 and smaller than the current end value.
+	 * @param rulerEndValue The end value. Must be greater than 0 and greater than the current start value.
+	 */
+	public void setRulerBounds(final double rulerStartValue, final double rulerEndValue)
+	{
+		if (rulerStartValue < 0) 
+			throw new IllegalArgumentException("Param \"rulerStartValue\" must be > 0, but is " + rulerStartValue);
+		if (rulerEndValue < 0) 
+			throw new IllegalArgumentException("Param \"rulerEndValue\" must be > 0, but is " + rulerEndValue);
+		if (rulerStartValue > rulerEndValue) 
+			throw new IllegalArgumentException("Param \"rulerEndValue\" must be > \"rulerStartValue\", " +
+					"but rulerStartValue is " + rulerStartValue + "and rulerEndValue is " + rulerEndValue);
+		
 		this.rulerStartValue = rulerStartValue;
-	}
-	
-	public void setRulerEndValue(double rulerEndValue) {
 		this.rulerEndValue = rulerEndValue;
 	}
+	
+	/**
+	 * Set's the start value of this ruler. 
+	 * 
+	 * @param rulerStartValue The start value. Must be greater than 0 and smaller than the current end value.
+	 */
+	public void setRulerStartValue(final double rulerStartValue) 
+	{
+		this.setRulerBounds(rulerStartValue, this.rulerEndValue);
+	}
+	
+	/**
+	 * Set's the end value of this ruler. 
+	 * 
+	 * @param rulerEndValue The end value. Must be greater than 0 and greater than the current start value.
+	 */
+	public void setRulerEndValue(final double rulerEndValue) 
+	{
+		this.setRulerBounds(this.rulerStartValue, rulerEndValue);
+	}
+	
 	
 }

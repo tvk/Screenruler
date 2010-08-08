@@ -33,6 +33,11 @@
 	  <artifactId>commons-lang</artifactId>
 	  <version>2.5</version>
 	</dependency>
+	<dependency>
+	  <groupId>commons-cli</groupId>
+	  <artifactId>commons-cli</artifactId>
+	  <version>1.2</version>
+	</dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -49,6 +54,19 @@
 					<target>1.6</target>
 				</configuration>
 			</plugin>
+			<plugin>
+	        <artifactId>maven-assembly-plugin</artifactId>
+	        <configuration>
+	          <descriptorRefs>
+	            <descriptorRef>jar-with-dependencies</descriptorRef>
+	          </descriptorRefs>
+	          <archive>
+	            <manifest>
+	              <mainClass>de.thomasvoecking.screenruler.App</mainClass>
+	            </manifest>
+	          </archive>
+	        </configuration>
+	      </plugin>
 		</plugins>
 	</build>
 </project>
