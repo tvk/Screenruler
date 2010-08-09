@@ -18,6 +18,8 @@ import org.apache.commons.logging.LogFactory;
 
 import com.sun.awt.AWTUtilities;
 
+import de.thomasvoecking.screenruler.ui.buttons.CloseButton;
+
 /**
  * The main frame. All components are directly painted on this component.
  * Also controls all dragging events.
@@ -33,23 +35,6 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	private static final long serialVersionUID = 2158183440540339826L;
 
 	/**
-	 * Possible dragging modes.
-	 * 
-	 * @author thomas
-	 */
-	enum DraggingMode
-	{
-		/** Resize mode to the left side. */
-		RESIZE_LEFT,
-		
-		/** Resize mode to the right side. */
-		RESIZE_RIGHT,
-		
-		/** Move mode */
-		MOVE
-	}
-	
-	/**
 	 * The logger
 	 */
 	private static final Log log = LogFactory.getLog(ScreenrulerFrame.class);
@@ -62,7 +47,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	/**
 	 * The size of this frame at startup.
 	 */
-	private static final Dimension size = new Dimension(600, 60); 
+	private static final Dimension size = new Dimension(600, 65); 
 	
 	/**
 	 * The minimum width of this frame
@@ -105,25 +90,15 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	private final Ruler ruler = new Ruler("cm", 48, 129);
 	
 	/**
-	 * The current {@link DraggingMode}
+	 * The close button
 	 */
-	private DraggingMode draggingMode = null;
+	private final CloseButton closeButton = new CloseButton();
 	
 	/**
-	 * The current bottom right border of this component. Is set when dragging is started.
+	 * Contains stateful data that is necessary for the dragging behaviour.
 	 */
-	private Point bottomRight = null;
+	private ScreenrulerDraggingData screenrulerDraggingData = new ScreenrulerDraggingData();
 
-	/**
-	 * The current mouse position relative to the top left corner of the component. Is set when dragging is started.
-	 */
-	private Point componentRelativeMouseLocationFromLeft = null;
-	
-	/**
-	 * The current mouse position relative to the bottom right corner of the component. Is set when dragging is started.
-	 */
-	private Point componentRelativeMouseLocationFromRight = null;
-	
 	/**
 	 * Constructor
 	 */
@@ -161,7 +136,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 		// When the ruler is currently in resizing state, draw no ruler and no resize controls.
 		// Instead draw an overlay.
 		final boolean paintOverlay = 
-			this.draggingMode == DraggingMode.RESIZE_LEFT || this.draggingMode == DraggingMode.RESIZE_RIGHT; 
+			this.screenrulerDraggingData.draggingMode == DraggingMode.RESIZE_LEFT || this.screenrulerDraggingData.draggingMode == DraggingMode.RESIZE_RIGHT; 
 		
 		if (paintOverlay)
 		{
@@ -175,6 +150,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 					0, 
 					this.getWidth() - 2 * resizeControlWidth - 2 * rulerPadding, 
 					this.getHeight()));
+			this.closeButton.paint(g, this.getCloseButtonBoundingBox());
 		}
 	}
 	
@@ -217,22 +193,22 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	{
 		if (e.getButton() == MouseEvent.BUTTON1)
 		{
-			this.componentRelativeMouseLocationFromLeft = e.getPoint();
-			this.componentRelativeMouseLocationFromRight = new Point(
+			this.screenrulerDraggingData.componentRelativeMouseLocationFromLeft = e.getPoint();
+			this.screenrulerDraggingData.componentRelativeMouseLocationFromRight = new Point(
 					(int) (this.getWidth() - e.getPoint().getX()), 
 					(int) (this.getHeight() - e.getPoint().getY()));
-			this.bottomRight = new Point(
+			this.screenrulerDraggingData.bottomRight = new Point(
 					(int) (this.getLocationOnScreen().getX() + this.getWidth()),
 					(int) (this.getLocationOnScreen().getY() + this.getHeight()));
 			
 			if (this.getLeftResizeControlBoundingBox().contains(e.getPoint()))
-				this.draggingMode = DraggingMode.RESIZE_LEFT;
+				this.screenrulerDraggingData.draggingMode = DraggingMode.RESIZE_LEFT;
 			else if (this.getRightResizeControlBoundingBox().contains(e.getPoint()))
-				this.draggingMode = DraggingMode.RESIZE_RIGHT;
+				this.screenrulerDraggingData.draggingMode = DraggingMode.RESIZE_RIGHT;
 			else
-				this.draggingMode = DraggingMode.MOVE;
+				this.screenrulerDraggingData.draggingMode = DraggingMode.MOVE;
 			
-			log.debug("New dragging mode: " + this.draggingMode);
+			log.debug("New dragging mode: " + this.screenrulerDraggingData.draggingMode);
 		}
 	}
 
@@ -242,27 +218,27 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	@Override
 	public void mouseDragged(final MouseEvent e) 
 	{
-		if (this.draggingMode == DraggingMode.RESIZE_LEFT)
+		if (this.screenrulerDraggingData.draggingMode == DraggingMode.RESIZE_LEFT)
 		{
 			final Rectangle newBounds = new Rectangle(
-					(int) (e.getLocationOnScreen().getX() - this.componentRelativeMouseLocationFromLeft.getX()), 
+					(int) (e.getLocationOnScreen().getX() - this.screenrulerDraggingData.componentRelativeMouseLocationFromLeft.getX()), 
 					(int) (this.getLocationOnScreen().getY()), 
-					(int) (this.bottomRight.getX() - e.getLocationOnScreen().getX() - this.componentRelativeMouseLocationFromLeft.getX()), 
+					(int) (this.screenrulerDraggingData.bottomRight.getX() - e.getLocationOnScreen().getX() - this.screenrulerDraggingData.componentRelativeMouseLocationFromLeft.getX()), 
 					this.getHeight());
 			if (newBounds.getWidth() >= minWidth) this.setBounds(newBounds);
 		}
-		else if (this.draggingMode == DraggingMode.RESIZE_RIGHT)
+		else if (this.screenrulerDraggingData.draggingMode == DraggingMode.RESIZE_RIGHT)
 		{
 			final Dimension newSize = new Dimension(
-					(int) (e.getLocationOnScreen().getX() - this.getLocationOnScreen().getX() + this.componentRelativeMouseLocationFromRight.getX()), 
+					(int) (e.getLocationOnScreen().getX() - this.getLocationOnScreen().getX() + this.screenrulerDraggingData.componentRelativeMouseLocationFromRight.getX()), 
 					this.getHeight());
 			if (newSize.getWidth() >= minWidth) this.setSize(newSize);
 		}
-		else if (this.draggingMode == DraggingMode.MOVE)
+		else if (this.screenrulerDraggingData.draggingMode == DraggingMode.MOVE)
 		{
 			this.setLocation(
-					(int) (e.getLocationOnScreen().getX() - this.componentRelativeMouseLocationFromLeft.getX()),
-					(int) (e.getLocationOnScreen().getY() - this.componentRelativeMouseLocationFromLeft.getY()));
+					(int) (e.getLocationOnScreen().getX() - this.screenrulerDraggingData.componentRelativeMouseLocationFromLeft.getX()),
+					(int) (e.getLocationOnScreen().getY() - this.screenrulerDraggingData.componentRelativeMouseLocationFromLeft.getY()));
 		}
 	}	
 
@@ -272,10 +248,10 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 	@Override
 	public void mouseReleased(final MouseEvent e) 
 	{
-		if (this.draggingMode != null)
+		if (this.screenrulerDraggingData.draggingMode != null)
 		{
-			log.debug("Releasing dragging mode: " + this.draggingMode);
-			this.draggingMode = null;
+			log.debug("Releasing dragging mode: " + this.screenrulerDraggingData.draggingMode);
+			this.screenrulerDraggingData.draggingMode = null;
 			this.repaint();
 		}
 	}
@@ -296,19 +272,39 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 		return new Rectangle(this.getWidth() - resizeControlWidth, 0, resizeControlWidth, resizeControlHeight);
 	}
 
-
+	/**
+	 * @return the bounding box where the close button should be drawn to.
+	 */
+	private Rectangle getCloseButtonBoundingBox()
+	{
+		return new Rectangle(4, this.getHeight() - 20, 16, 16);
+	}
 
 	/**
 	 * @see java.awt.event.MouseMotionListener#mouseMoved(java.awt.event.MouseEvent)
 	 */
 	@Override
-	public void mouseMoved(final MouseEvent e) { /* unused */ }
+	public void mouseMoved(final MouseEvent e) 
+	{
+		// Check if we are over the close button
+		final Rectangle closeButtonBoundingBox = this.getCloseButtonBoundingBox();
+		if (this.closeButton.setMouseOver(closeButtonBoundingBox.contains(e.getPoint()))) this.repaint(
+				(int) closeButtonBoundingBox.getX(), (int) closeButtonBoundingBox.getY(), 
+				(int) closeButtonBoundingBox.getWidth(), (int) closeButtonBoundingBox.getHeight());
+	}
 
+	
+	
 	/**
 	 * @see java.awt.event.MouseListener#mouseClicked(java.awt.event.MouseEvent)
 	 */
 	@Override
-	public void mouseClicked(final MouseEvent e) { /* unused */ }
+	public void mouseClicked(final MouseEvent e) 
+	{
+		// Check if we have clicked the exit button
+		if (this.getCloseButtonBoundingBox().contains(e.getPoint())) System.exit(0);
+		
+	}
 
 	/**
 	 * @see java.awt.event.MouseListener#mouseEntered(java.awt.event.MouseEvent)

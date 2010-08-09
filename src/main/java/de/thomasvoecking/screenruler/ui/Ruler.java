@@ -31,7 +31,7 @@ public class Ruler
 	/**
 	 * The length of the (main) stroke in px 
 	 */
-	private static final int strokeLength = 30;
+	private static final int strokeLength = 25;
 	
 	/**
 	 * The minimum distance between two strokes for inner fields in px
