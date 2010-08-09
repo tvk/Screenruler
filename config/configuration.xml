@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+	<screenrulerFrame>
+		<window opacity="0.7" />
+		<size width="600" height="65" minWidth="200" />
+		<resizeControl>
+			<size width="10" height="30" />
+		</resizeControl>
+	</screenrulerFrame>
+</configuration>

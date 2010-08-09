@@ -6,6 +6,9 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
+import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.log4j.Level;
@@ -37,7 +40,6 @@ public class App
     	log.debug("Parsing command line arguments");
     	final CommandLine options = parseOptions(args);
     	
-        final ScreenrulerFrame frame = new ScreenrulerFrame();
         if (options.hasOption("loglevel"))
         {
         	final Level level = Level.toLevel(options.getOptionValue("loglevel"));
@@ -45,6 +47,18 @@ public class App
         	Logger.getRootLogger().setLevel(level);
         }
         
+        log.debug("Loading configuration");
+        final Configuration configuration;
+		try 
+		{
+			configuration = new XMLConfiguration("config/configuration.xml");
+		} 
+		catch (final ConfigurationException e) 
+		{
+			throw new IllegalStateException("Could not load configuration", e);
+		}
+        
+		final ScreenrulerFrame frame = new ScreenrulerFrame(configuration);
         frame.setVisible(true);
         
         
