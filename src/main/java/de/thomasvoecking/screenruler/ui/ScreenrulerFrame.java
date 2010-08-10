@@ -134,7 +134,7 @@ public class ScreenrulerFrame extends JFrame implements MouseListener, MouseMoti
 		{
 			this.paintArrows(g);
 			this.ruler.paint(g, new Rectangle(
-					this.configuration.getInt("screenrulerFrame.resizeControl.size[@height]") + rulerPadding, 
+					this.configuration.getInt("screenrulerFrame.resizeControl.size[@width]") + rulerPadding, 
 					0, 
 					this.getWidth() - 2 * this.configuration.getInt("screenrulerFrame.resizeControl.size[@width]") - 2 * rulerPadding, 
 					this.getHeight()));
